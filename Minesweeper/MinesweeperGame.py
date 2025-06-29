@@ -3,15 +3,19 @@ import random
 __all__ = ["Minesweeper"]
 
 
+"""
+约定：-1是雷 0是空 1-8是数字
+"""
+
+
 class Minesweeper:
-    ROWS, COLS = 10, 10
-
-    MINES = 10
-
-    grid = []
-    revealed = []
-    flagged = []
-    game_over = False
+    def __init__(self, ROWS: int = 10, COLS: int = 10, MINES: int = 10):
+        self.ROWS, self.COLS, self.MINES = ROWS, COLS, MINES
+        self.grid = []
+        self.revealed = []
+        self.flagged = []
+        self.game_over = False
+        self.initialize_game()
 
     def initialize_game(self):
         self.grid = [[0 for _ in range(self.COLS)] for _ in range(self.ROWS)]
@@ -47,7 +51,9 @@ class Minesweeper:
                     self.reveal_cell(i + di, j + dj)
 
     def check_win(self) -> bool:
-        if self.ROWS * self.COLS - self.MINES == len(self.revealed):
+        num_revealed = sum([sum(i) for i in self.revealed])
+        if self.ROWS * self.COLS - self.MINES == num_revealed:
+            self.game_over = True
             return True
         return False
 
