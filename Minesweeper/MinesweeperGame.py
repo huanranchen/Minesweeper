@@ -50,8 +50,10 @@ class Minesweeper:
                 for dj in [-1, 0, 1]:
                     self.reveal_cell(i + di, j + dj)
 
-    def check_win(self) -> bool:
+    def check_win(self, verbose: bool = False) -> bool:
         num_revealed = sum([sum(i) for i in self.revealed])
+        if verbose:
+            print(f"num_revealed {num_revealed}, all {self.ROWS * self.COLS - self.MINES}")
         if self.ROWS * self.COLS - self.MINES == num_revealed:
             self.game_over = True
             return True

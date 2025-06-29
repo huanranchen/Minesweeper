@@ -3,7 +3,13 @@ from transformers import GPT2LMHeadModel, GPT2Config
 from torch import nn
 from Minesweeper import Minesweeper
 
-__all__ = ["get_bert_like_01_out_transformer"]
+__all__ = [
+    "get_bert_like_01_out_transformer",
+    "get_bert_like_01_out_transformer_gpt2_large",
+    "get_bert_like_01_out_transformer_gpt2_middle",
+    "get_bert_like_01_out_transformer_gpt2_small",
+    "get_bert_like_01_out_transformer_gpt2_xl",
+]
 
 """
 约定输入：
@@ -30,14 +36,18 @@ class BertLike01OutTransformer(GPT2LMHeadModel):
         y[revealed] = -1  # 雷和revealed是-1
         y[y > 0] = 0  # 其他都可以点
         y += 1  # 雷和revealed是0， 其他是1
-        return x, y  # x, y都是L 的tensor
+        return x, y, revealed  # x, y都是L 的tensor
 
     def next_move(self, minesweeper: Minesweeper, execute: bool = False):
-        x, _ = self.prepare_input(minesweeper)
+        x, _, revealed = self.prepare_input(minesweeper)
         x = x.unsqueeze(0)  # 1, L
         logits = self(x).logits  # 1, L, 2
-        logits[logits[:, :, 0] > logits[:, :, 1]] = float("-inf")  # 只取预测为1的位置  # B, L, 2
-        prediction = logits[:, :, 1].argmax(dim=1)  # 1
+        logits[logits[:, :, 0] > logits[:, :, 1]] = float(
+            "-inf"
+        )  # 只取预测为1的位置。预测为0的不取  # TODO：参考训练，这里可能要归一化后找。而且不一定要排除0>1的。（否则可能stuck）
+        logits = logits.squeeze()  # L, 2
+        logits[revealed] = float("-inf")  # 已经开了的格子不取  TODO: 训练那块需要这样做吗
+        prediction = logits[:, 1].argmax()  # scalar
         row, col = prediction // minesweeper.COLS, prediction % minesweeper.COLS
         row, col = row.item(), col.item()
         if execute:
@@ -62,3 +72,43 @@ def get_bert_like_01_out_transformer(
         )
     )
     return model
+
+
+def get_bert_like_01_out_transformer_gpt2_small(
+    n_embd: int = 768,
+    n_layer: int = 12,
+    n_head: int = 12,
+    *args,
+    **kwargs,
+):
+    return get_bert_like_01_out_transformer(n_embd=n_embd, n_layer=n_layer, n_head=n_head, *args, **kwargs)
+
+
+def get_bert_like_01_out_transformer_gpt2_middle(
+    n_embd: int = 1024,
+    n_layer: int = 24,
+    n_head: int = 16,
+    *args,
+    **kwargs,
+):
+    return get_bert_like_01_out_transformer(n_embd=n_embd, n_layer=n_layer, n_head=n_head, *args, **kwargs)
+
+
+def get_bert_like_01_out_transformer_gpt2_large(
+    n_embd: int = 1280,
+    n_layer: int = 36,
+    n_head: int = 20,
+    *args,
+    **kwargs,
+):
+    return get_bert_like_01_out_transformer(n_embd=n_embd, n_layer=n_layer, n_head=n_head, *args, **kwargs)
+
+
+def get_bert_like_01_out_transformer_gpt2_xl(
+    n_embd: int = 1600,
+    n_layer: int = 48,
+    n_head: int = 25,
+    *args,
+    **kwargs,
+):
+    return get_bert_like_01_out_transformer(n_embd=n_embd, n_layer=n_layer, n_head=n_head, *args, **kwargs)
