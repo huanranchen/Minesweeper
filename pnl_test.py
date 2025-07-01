@@ -6,7 +6,7 @@ import platform
 from Minesweeper import *
 
 model = get_bert_like_01_out_transformer()
-model.load_state_dict(torch.load("checkpoints/model_1.pt", map_location=torch.device('cpu')))
+model.load_state_dict(torch.load("checkpoints/modelt.pt", map_location=torch.device('cpu')))
 model.eval()
 
 gamer = MinesweeperVisualizer(Minesweeper())

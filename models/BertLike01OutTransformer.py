@@ -42,11 +42,14 @@ class BertLike01OutTransformer(GPT2LMHeadModel):
         x, _, revealed = self.prepare_input(minesweeper)
         x = x.unsqueeze(0)  # 1, L
         logits = self(x).logits  # 1, L, 2
-        logits[logits[:, :, 0] > logits[:, :, 1]] = float(
-            "-inf"
-        )  # 只取预测为1的位置。预测为0的不取  # TODO：参考训练，这里可能要归一化后找。而且不一定要排除0>1的。（否则可能stuck）
+        # logits[logits[:, :, 0] > logits[:, :, 1]] = float(
+        #     "-inf"
+        # )  # 只取预测为1的位置。预测为0的不取
+        # 这里归一化有很多选择。不归一化，或者uncomment上一行都有可能得到更好的效果。
+        # test-time strategy有很多，提升也可能会很大
+        logits = torch.softmax(logits, dim=-1)
         logits = logits.squeeze()  # L, 2
-        logits[revealed] = float("-inf")  # 已经开了的格子不取  TODO: 训练那块需要这样做吗
+        logits[revealed] = float("-inf")  # 已经开了的格子不取
         prediction = logits[:, 1].argmax()  # scalar
         row, col = prediction // minesweeper.COLS, prediction % minesweeper.COLS
         row, col = row.item(), col.item()

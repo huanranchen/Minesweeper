@@ -14,15 +14,25 @@ class PNLTrainer:
     Positive Negative Loss Trainer
     """
 
-    def __init__(self, minesweeper_cfg: dict, model: nn.Module, wandb_name: str = "debug", device=torch.device("cuda")):
+    def __init__(
+        self,
+        minesweeper_cfg: dict,
+        model: nn.Module,
+        wandb_name: str = "debug",
+        lr: float = 1e-4,
+        device=torch.device("cuda"),
+    ):
         self.minesweeper_cfg = minesweeper_cfg
         self.model = model
         self.device = device
         self.criterion = nn.CrossEntropyLoss(reduction="none")
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=5e-4, weight_decay=0)
-        os.makedirs(os.path.join("./checkpoints", wandb_name), exist_ok=True)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr, weight_decay=0)
         self.model.to(self.device)
+        wandb_name = wandb_name + "-lr=" + str(lr)
         wandb.init(project="minesweeper", name=wandb_name)
+        self.wandb_name = wandb_name
+        self.ckpt_path = os.path.join("./checkpoints", self.wandb_name)
+        os.makedirs(self.ckpt_path, exist_ok=True)
 
     def prepare_input(self, minesweeper: Minesweeper):
         grid = torch.tensor(minesweeper.grid, device=self.device).reshape(-1)
@@ -53,11 +63,13 @@ class PNLTrainer:
     def train(
         self,
         batch_size: int = 512,  # effective batch size here
-        total_iter: int = 65536,
+        total_iter: int = 131072,
         pool_update_frequency: int = 10,
         saving_frequency: int = 10,
         gradient_accumulation_steps: int = 1,
     ):
+        if os.path.exists(os.path.join(self.ckpt_path, "model.pt")):
+            self.model.load_state_dict(torch.load(os.path.join(self.ckpt_path, "model.pt"), map_location=self.device))
         total_batch_size = batch_size
         batch_size = total_batch_size // gradient_accumulation_steps
         assert saving_frequency % pool_update_frequency == 0
@@ -66,7 +78,7 @@ class PNLTrainer:
         self.model.train()
         for num_iter in tqdm(range(1, total_iter + 1)):
             if num_iter % 5000 == 0:
-                pool_update_frequency = max(pool_update_frequency // 2, 1)
+                pool_update_frequency = max(pool_update_frequency // 2, 1 if num_iter > 65536 else 2)
                 print(f"pool update frequency: {pool_update_frequency}")
             games = [i for i in games if not i.game_over]
             games = games + [Minesweeper(**self.minesweeper_cfg) for _ in range(total_batch_size - len(games))]
@@ -110,7 +122,7 @@ class PNLTrainer:
                 acc = round(num_win / num_game_over, 4)
                 print(f"loss={loss}, acc={acc}, avg steps={round(avg_steps, 4)}")
                 print(f"num_game_over {num_game_over}, num_wins {num_win}")
-                torch.save(self.model.state_dict(), "./checkpoints/model.pt")
+                torch.save(self.model.state_dict(), os.path.join(self.ckpt_path, "model.pt"))
                 wandb.log(
                     {
                         "optim/loss": loss,
